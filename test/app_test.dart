@@ -4,6 +4,8 @@ import 'package:movement_quest/app.dart';
 import 'package:movement_quest/screens/plans_screen.dart';
 import 'package:movement_quest/widgets/plan_card.dart';
 
+import 'support/fake_stores.dart';
+
 void main() {
   for (final size in [const Size(390, 844), const Size(844, 390)]) {
     testWidgets('five roles and return paths work at $size', (tester) async {
@@ -11,7 +13,10 @@ void main() {
       tester.view.physicalSize = size;
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetPhysicalSize);
-      await tester.pumpWidget(const MovementQuestApp());
+      await tester.pumpWidget(
+        MovementQuestApp(settingsStore: FakeSettingsStore()),
+      );
+      await tester.pumpAndSettle();
 
       expect(find.text('Workout plans'), findsOneWidget);
       expect(find.byType(PlanCard), findsWidgets);
@@ -68,7 +73,7 @@ void main() {
 
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
-      expect(find.text('Settings are not available yet.'), findsOneWidget);
+      expect(find.text('Equipment preference'), findsOneWidget);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text('Workout plans'), findsOneWidget);
