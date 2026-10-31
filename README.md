@@ -1,45 +1,68 @@
 # Movement Quest
 
-Movement Quest is an offline workout tracker. The goal is to let users
-save workout plans, record sets, fix their history, and get a plan
-suggestion based on their equipment.
+Movement Quest is an offline workout tracker. It saves workout plans
+and sets on the device and suggests a saved plan using equipment
+preferences and workout history.
 
-## My part
+## Using the app
 
-I worked on the five-screen navigation, reusable plan cards, workout
-controls, history controls, and settings.
+1. Tap Add plan and enter a name, equipment, optional notes, and effort.
+2. Open a plan, tap Start workout, and save each set.
+3. Tap Finish workout after saving at least one set. Sets from the
+   same session count as one finished workout.
+4. Open History to add, correct, or delete a set. Deletion asks for
+   confirmation. A plan with saved sets cannot be deleted.
+5. Use Settings to save equipment preference, default effort, and
+   reduced motion. New defaults do not overwrite existing plans.
 
-The workout screen checks set entries, prevents repeated saves, and
-asks before leaving an unfinished workout. The history screen supports
-adding, correcting, and deleting entries when a data store is supplied.
+The equipment filter narrows the plan list. Suggestions explain their
+points. View plan opens the plan without starting it. Not now hides
+the suggestion until related data changes.
 
-I used SharedPreferences for equipment preference, starting effort,
-and reduced motion.
+## Storage and structure
 
-## Current status
+WorkoutPlan and TrainingLog use SQLite. TrainingLog links each set to
+a plan and groups sets by session key. SharedPreferences stores settings.
 
-The screens and settings are implemented. The plan list still uses
-examples, and the plan editor is a placeholder.
+lib/screens contains the five screen roles.
+lib/widgets contains shared cards and dialogs.
+lib/data contains validation, storage, settings, and suggestion rules.
 
-The workout and history screens still need the real database connected.
-Set saving stays unavailable until that connection is ready.
-The Gear Match helper also needs to be connected and checked against
-the proposal.
+## Setup and checks
 
-## Run and check
+Install Flutter with Dart 3.13.2 or compatible and the Android SDK.
+Start an Android emulator or connect an Android device.
 
-From the project folder:
+From this folder, run:
 
 flutter pub get
 flutter run
 flutter analyze
 flutter test
 
-## Checks completed
+## Review — October 31, 2026
 
-All 19 automated tests passed, and Flutter analysis reported no issues.
+All 53 automated tests passed. Flutter analysis found no issues.
 
-The tests cover navigation, settings, workout controls, history changes,
-validation, and failure recovery. Workout and history tests use fake
-storage. Database persistence, offline restart, and the final APK still
-need testing.
+Tests cover plan and set CRUD, validation, restricted deletion, session
+counts, repeated saves, failure recovery, SQLite reopening, settings,
+navigation, large text, landscape layouts, and suggestions.
+
+Earlier Pixel 9 emulator checks confirmed saving sets, finishing a
+workout, correcting reps, canceling deletion, and suggestion updates.
+
+Two-device offline restart checks, actual peer feedback, the written
+helper evaluation, release APK verification, and final submission
+documents are still pending.
+
+## Project board
+
+https://app.clickup.com/90141781449/v/b/6-901422407533-2
+
+The October 31 board shows 8 Done, 4 Review/Test, and 7 Backlog.
+Review/Test exceeds the planned limit of two. PRs 1, 2, and 3 remain
+open. The required October 24 snapshot was not found.
+
+Current board views:
+docs/evidence/2026-10-31-board-top.png
+docs/evidence/2026-10-31-board-backlog-lower.png
