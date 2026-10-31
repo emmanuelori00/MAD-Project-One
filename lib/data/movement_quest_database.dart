@@ -1,10 +1,11 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'training_log_store.dart';
 import 'workout_plan.dart';
 import 'workout_plan_store.dart';
 
-class MovementQuestDatabase implements WorkoutPlanStore {
+class MovementQuestDatabase implements WorkoutPlanStore, TrainingLogStore {
   MovementQuestDatabase({DatabaseFactory? factory, this.databasePath})
     : _factory = factory ?? databaseFactory;
 
@@ -124,6 +125,124 @@ class MovementQuestDatabase implements WorkoutPlanStore {
         whereArgs: [id],
       );
       if (count != 1) throw StateError('This plan no longer exists.');
+    });
+  }
+
+  @override
+  Future<List<TrainingEntry>> readAll() async {
+    final db = await database;
+    final rows = await db.query('TrainingLog');
+    final entries = rows.map((row) {
+      return TrainingEntry(
+        id: row['id'] as int,
+        workoutId: row['workoutId'] as int,
+        sessionKey: row['sessionKey'] as String,
+        exerciseLabel: row['exerciseLabel'] as String,
+        reps: row['reps'] as int,
+        loggedAt: DateTime.parse(row['loggedAt'] as String).toUtc(),
+        sessionFinished: row['sessionFinished'] == 1,
+      );
+    }).toList();
+    entries.sort((a, b) {
+      final timeOrder = b.loggedAt.compareTo(a.loggedAt);
+      return timeOrder != 0 ? timeOrder : b.id!.compareTo(a.id!);
+    });
+    return entries;
+  }
+
+  @override
+  Future<void> add(TrainingEntry entry) async {
+    if (entry.id != null ||
+        entry.workoutId <= 0 ||
+        entry.sessionKey.trim().isEmpty ||
+        validateExercise(entry.exerciseLabel) != null ||
+        entry.reps <= 0) {
+      throw ArgumentError('Enter a valid new workout set.');
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      final session = await txn.query(
+        'TrainingLog',
+        columns: ['workoutId', 'sessionFinished'],
+        where: 'sessionKey = ?',
+        whereArgs: [entry.sessionKey],
+      );
+      final finished = entry.sessionFinished ? 1 : 0;
+      if (session.any(
+        (row) =>
+            row['workoutId'] != entry.workoutId ||
+            row['sessionFinished'] != finished,
+      )) {
+        throw StateError('Use the same plan and status for this session.');
+      }
+      await txn.insert('TrainingLog', {
+        'workoutId': entry.workoutId,
+        'sessionKey': entry.sessionKey,
+        'exerciseLabel': entry.exerciseLabel.trim(),
+        'reps': entry.reps,
+        'loggedAt': entry.loggedAt.toUtc().toIso8601String(),
+        'sessionFinished': finished,
+      });
+    });
+  }
+
+  @override
+  Future<void> correct(
+    int id, {
+    required String exerciseLabel,
+    required int reps,
+  }) async {
+    if (id <= 0 || validateExercise(exerciseLabel) != null || reps <= 0) {
+      throw ArgumentError('Enter a valid exercise name and rep count.');
+    }
+    final db = await database;
+    final count = await db.update(
+      'TrainingLog',
+      {'exerciseLabel': exerciseLabel.trim(), 'reps': reps},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (count != 1) throw StateError('This set no longer exists.');
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    if (id <= 0) throw ArgumentError('Choose a saved set.');
+    final db = await database;
+    final count = await db.delete(
+      'TrainingLog',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (count != 1) throw StateError('This set no longer exists.');
+  }
+
+  @override
+  Future<void> finishSession(String sessionKey) async {
+    if (sessionKey.trim().isEmpty) {
+      throw ArgumentError('Choose a workout session.');
+    }
+
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'TrainingLog',
+        columns: ['id'],
+        where: 'sessionKey = ?',
+        whereArgs: [sessionKey],
+        limit: 1,
+      );
+
+      if (rows.isEmpty) {
+        throw StateError('Save at least one set before finishing.');
+      }
+
+      await txn.update(
+        'TrainingLog',
+        {'sessionFinished': 1},
+        where: 'sessionKey = ?',
+        whereArgs: [sessionKey],
+      );
     });
   }
 
