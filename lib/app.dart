@@ -1,18 +1,35 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'data/app_settings.dart';
+import 'data/movement_quest_database.dart';
+import 'data/training_log_store.dart';
+import 'data/workout_plan_store.dart';
 import 'screens/home_screen.dart';
 
 class MovementQuestApp extends StatefulWidget {
-  const MovementQuestApp({super.key, this.settingsStore});
+  const MovementQuestApp({
+    super.key,
+    this.settingsStore,
+    this.planStore,
+    this.logStore,
+  });
 
   final SettingsStore? settingsStore;
+  final WorkoutPlanStore? planStore;
+  final TrainingLogStore? logStore;
 
   @override
   State<MovementQuestApp> createState() => _MovementQuestAppState();
 }
 
 class _MovementQuestAppState extends State<MovementQuestApp> {
+  late final _database = widget.planStore == null || widget.logStore == null
+      ? MovementQuestDatabase()
+      : null;
+  late final _planStore = widget.planStore ?? _database!;
+  late final _logStore = widget.logStore ?? _database!;
   late final _settings = SettingsController(
     widget.settingsStore ?? PreferencesSettingsStore(),
   );
@@ -26,6 +43,7 @@ class _MovementQuestAppState extends State<MovementQuestApp> {
   @override
   void dispose() {
     _settings.dispose();
+    unawaited(_database?.close());
     super.dispose();
   }
 
@@ -49,7 +67,11 @@ class _MovementQuestAppState extends State<MovementQuestApp> {
             child: child!,
           );
         },
-        home: HomeScreen(settings: _settings),
+        home: HomeScreen(
+          settings: _settings,
+          planStore: _planStore,
+          logStore: _logStore,
+        ),
       ),
     );
   }

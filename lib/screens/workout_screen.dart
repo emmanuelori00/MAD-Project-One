@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../data/training_log_store.dart';
+import '../data/workout_plan.dart';
+import '../data/workout_plan_store.dart';
 import '../widgets/confirmation_dialog.dart';
-import 'plan_editor_screen.dart';
 
 class WorkoutScreen extends StatefulWidget {
   const WorkoutScreen({
@@ -12,13 +13,19 @@ class WorkoutScreen extends StatefulWidget {
     this.workoutId,
     this.logStore,
     this.onEdit,
+    this.planStore,
+    this.planNote = '',
+    this.effortPreference = 3,
   });
 
   final String planName;
   final String equipment;
   final int? workoutId;
   final TrainingLogStore? logStore;
-  final VoidCallback? onEdit;
+  final Future<WorkoutPlan?> Function()? onEdit;
+  final WorkoutPlanStore? planStore;
+  final String planNote;
+  final int effortPreference;
 
   @override
   State<WorkoutScreen> createState() => _WorkoutScreenState();
@@ -35,6 +42,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _busy = false;
   bool _allowExit = false;
   bool _confirming = false;
+  WorkoutPlan? _editedPlan;
+
+  String get _planName => _editedPlan?.title ?? widget.planName;
+  String get _equipment => _editedPlan?.equipmentTag ?? widget.equipment;
+  String get _notes => _editedPlan?.planNote ?? widget.planNote;
+  int get _effort => _editedPlan?.effortPreference ?? widget.effortPreference;
 
   bool get _active => _sessionKey != null && !_finished;
   bool get _available => widget.workoutId != null && widget.logStore != null;
@@ -56,6 +69,61 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       _exercise.clear();
       _reps.clear();
     });
+  }
+
+  Future<void> _editPlan() async {
+    if (_active || _busy || widget.onEdit == null) return;
+    setState(() => _busy = true);
+    try {
+      final saved = await widget.onEdit!();
+      if (mounted && saved != null) {
+        setState(() {
+          _editedPlan = saved;
+          _message = 'Plan saved.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _deletePlan() async {
+    if (_active ||
+        _busy ||
+        _confirming ||
+        widget.planStore == null ||
+        widget.workoutId == null) {
+      return;
+    }
+    _confirming = true;
+    final confirmed = await confirmAction(
+      context,
+      title: 'Delete this plan?',
+      message: 'Remove "$_planName"? Plans with saved sets cannot be deleted.',
+      action: 'Delete plan',
+    );
+    _confirming = false;
+    if (!mounted || !confirmed) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      await widget.planStore!.deletePlan(widget.workoutId!);
+      if (!mounted) return;
+      setState(() => _allowExit = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pop();
+      });
+    } on PlanHasLogsException catch (error) {
+      if (mounted) setState(() => _message = error.toString());
+    } catch (_) {
+      if (mounted) {
+        setState(() => _message = 'Could not delete this plan. Try again.');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _saveSet() async {
@@ -169,35 +237,36 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                widget.planName,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              Text(_planName, style: Theme.of(context).textTheme.headlineSmall),
               const SizedBox(height: 8),
-              Text('Equipment: ${widget.equipment}'),
+              Text('Equipment: $_equipment'),
+              Text('Effort: $_effort of 5'),
+              if (_notes.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(_notes),
+              ],
               const SizedBox(height: 16),
               if (!_available)
                 const Text(
                   'Example plan — not saved. Tracking will be available when saved plans are connected.',
                 ),
               const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton(
-                  onPressed: _active || _busy
-                      ? null
-                      : widget.onEdit ??
-                            () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (context) => PlanEditorScreen(
-                                    planName: widget.planName,
-                                  ),
-                                ),
-                              );
-                            },
-                  child: const Text('Edit plan'),
-                ),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  OutlinedButton(
+                    onPressed: _active || _busy || widget.onEdit == null
+                        ? null
+                        : _editPlan,
+                    child: const Text('Edit plan'),
+                  ),
+                  if (widget.planStore != null && widget.workoutId != null)
+                    TextButton(
+                      onPressed: _active || _busy ? null : _deletePlan,
+                      child: const Text('Delete plan'),
+                    ),
+                ],
               ),
               const SizedBox(height: 16),
               Text('Saved sets this workout: $_savedSets'),

@@ -5,10 +5,18 @@ import '../widgets/confirmation_dialog.dart';
 import '../widgets/log_editor_dialog.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key, this.store, this.plans = const []});
+  const HistoryScreen({
+    super.key,
+    this.store,
+    this.plans = const [],
+    this.refreshToken = 0,
+    this.onChanged,
+  });
 
   final TrainingLogStore? store;
   final List<WorkoutReference> plans;
+  final int refreshToken;
+  final VoidCallback? onChanged;
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -18,6 +26,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<TrainingEntry> _entries = [];
   bool _busy = false;
   bool _loaded = false;
+  bool _reloadPending = false;
+  bool _dialogOpen = false;
   String? _error;
   String? _message;
 
@@ -27,8 +37,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshToken != widget.refreshToken ||
+        oldWidget.store != widget.store) {
+      _load();
+    }
+  }
+
   Future<void> _load() async {
-    if (widget.store == null || _busy) return;
+    if (widget.store == null) return;
+    if (_busy) {
+      _reloadPending = true;
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -46,12 +69,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
         setState(() => _error = 'Could not load history. Try again.');
       }
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+        if (_reloadPending) {
+          _reloadPending = false;
+          _load();
+        }
+      }
     }
   }
 
   Future<void> _edit([TrainingEntry? entry]) async {
-    if (_busy || widget.store == null) return;
+    if (_busy || _dialogOpen || widget.store == null) return;
+    _dialogOpen = true;
     final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
@@ -62,13 +92,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
         entry: entry,
       ),
     );
+    _dialogOpen = false;
     if (!mounted || saved != true) return;
     setState(() => _message = 'History saved.');
+    widget.onChanged?.call();
     await _load();
   }
 
   Future<void> _delete(TrainingEntry entry) async {
-    if (_busy || entry.id == null) return;
+    if (_busy || _dialogOpen || entry.id == null) return;
+    _dialogOpen = true;
     final confirmed = await confirmAction(
       context,
       title: 'Delete this set?',
@@ -76,6 +109,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           '${entry.exerciseLabel}: ${entry.reps} reps. Deleting the last set of a finished workout also removes that workout from the total.',
       action: 'Delete set',
     );
+    _dialogOpen = false;
     if (!mounted || !confirmed || _busy) return;
     setState(() {
       _busy = true;
@@ -86,6 +120,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       await widget.store!.delete(entry.id!);
       if (!mounted) return;
       setState(() => _message = 'Set deleted.');
+      widget.onChanged?.call();
     } catch (_) {
       if (mounted) {
         setState(() => _error = 'Could not delete this set. Try again.');

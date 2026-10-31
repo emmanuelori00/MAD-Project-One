@@ -2,6 +2,69 @@ import 'dart:async';
 
 import 'package:movement_quest/data/app_settings.dart';
 import 'package:movement_quest/data/training_log_store.dart';
+import 'package:movement_quest/data/workout_plan.dart';
+import 'package:movement_quest/data/workout_plan_store.dart';
+
+class FakePlanStore implements WorkoutPlanStore {
+  FakePlanStore({this.logs});
+
+  final FakeLogStore? logs;
+  final plans = <WorkoutPlan>[];
+  bool failRead = false;
+  bool failWrite = false;
+  Completer<void>? pending;
+  int adds = 0;
+  int updates = 0;
+  int deletes = 0;
+  int _id = 0;
+
+  Future<void> _write() async {
+    if (pending != null) await pending!.future;
+    if (failWrite) throw StateError('write failed');
+  }
+
+  WorkoutPlan _saved(WorkoutPlan plan, int id) => WorkoutPlan(
+    id: id,
+    title: plan.title.trim(),
+    equipmentTag: plan.equipmentTag,
+    planNote: plan.planNote,
+    effortPreference: plan.effortPreference,
+  );
+
+  @override
+  Future<List<WorkoutPlan>> readPlans() async {
+    if (failRead) throw StateError('read failed');
+    return [...plans];
+  }
+
+  @override
+  Future<int> addPlan(WorkoutPlan plan) async {
+    adds++;
+    await _write();
+    final id = ++_id;
+    plans.add(_saved(plan, id));
+    return id;
+  }
+
+  @override
+  Future<void> updatePlan(WorkoutPlan plan) async {
+    updates++;
+    await _write();
+    final index = plans.indexWhere((saved) => saved.id == plan.id);
+    if (index < 0) throw StateError('missing plan');
+    plans[index] = _saved(plan, plan.id!);
+  }
+
+  @override
+  Future<void> deletePlan(int id) async {
+    deletes++;
+    await _write();
+    if (logs?.entries.any((entry) => entry.workoutId == id) ?? false) {
+      throw const PlanHasLogsException();
+    }
+    plans.removeWhere((plan) => plan.id == id);
+  }
+}
 
 class FakeSettingsStore implements SettingsStore {
   AppSettings value = const AppSettings();

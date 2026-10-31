@@ -140,13 +140,17 @@ void main() {
   testWidgets('reduced motion applies to new routes', (tester) async {
     final store = FakeSettingsStore()
       ..value = const AppSettings(reducedMotion: true);
-    await tester.pumpWidget(MovementQuestApp(settingsStore: store));
+    await tester.pumpWidget(
+      MovementQuestApp(
+        settingsStore: store,
+        planStore: FakePlanStore(),
+        logStore: FakeLogStore(),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Add plan'));
     await tester.pumpAndSettle();
-    final context = tester.element(
-      find.text('Plan editing is not available yet.'),
-    );
+    final context = tester.element(find.text('Plan name'));
     expect(MediaQuery.disableAnimationsOf(context), true);
     expect(
       (ModalRoute.of(context)! as TransitionRoute).transitionDuration,
