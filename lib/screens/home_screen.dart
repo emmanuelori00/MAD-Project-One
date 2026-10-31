@@ -31,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _historyRefresh = 0;
   int _finishedWorkouts = 0;
   List<WorkoutPlan> _plans = [];
+  List<TrainingEntry> _entries = [];
   bool _loaded = false;
   bool _busy = false;
   bool _reloadPending = false;
@@ -61,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _plans = plans;
+        _entries = entries;
         _finishedWorkouts = finishedSessionCount(entries);
         _loaded = true;
       });
@@ -162,6 +164,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               PlansScreen(
                 plans: _plans,
+                entries: _entries,
+                preferredEquipment: widget.settings.value.equipment,
                 loaded: _loaded,
                 busy: _busy,
                 error: _error,
