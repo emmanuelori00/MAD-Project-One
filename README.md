@@ -65,7 +65,7 @@ verification and final submission documents are still pending.
 
 https://app.clickup.com/90141781449/v/b/6-901422407533-2
 
-The October 31 board shows 8 Done, 4 Review/Test, and 7 Backlog.
+The October 31 board shows 8 Done, 5 Review/Test, 1 In progress, and 5 Backlog.
 Review/Test exceeds the planned limit of two. PRs 1, 2, and 3 remain
 open. The required October 24 snapshot was not found.
 
