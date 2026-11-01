@@ -51,9 +51,15 @@ navigation, large text, landscape layouts, and suggestions.
 Earlier Pixel 9 emulator checks confirmed saving sets, finishing a
 workout, correcting reps, canceling deletion, and suggestion updates.
 
-Two-device offline restart checks, actual peer feedback, the written
-helper evaluation, release APK verification, and final submission
-documents are still pending.
+Offline checks passed on Pixel 9 and InClass09 Test. Plans, saved sets,
+workout counts, and settings stayed saved after closing and reopening
+the app.
+
+Workout suggestion results are in `AI_FEATURE.md`. Both versions
+matched the expected choice in 3 of 4 valid examples.
+
+App structure is explained in `ARCHITECTURE.md`. Release APK
+verification and final submission documents are still pending.
 
 ## Project board
 
