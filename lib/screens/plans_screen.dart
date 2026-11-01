@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../data/app_settings.dart';
+import '../data/gear_match.dart';
+import '../data/training_log_store.dart';
 import '../data/workout_plan.dart';
 import '../widgets/plan_card.dart';
 
@@ -8,6 +10,8 @@ class PlansScreen extends StatefulWidget {
   const PlansScreen({
     super.key,
     required this.plans,
+    required this.entries,
+    required this.preferredEquipment,
     required this.loaded,
     required this.busy,
     required this.finishedWorkouts,
@@ -21,6 +25,8 @@ class PlansScreen extends StatefulWidget {
   });
 
   final List<WorkoutPlan> plans;
+  final List<TrainingEntry> entries;
+  final String preferredEquipment;
   final bool loaded;
   final bool busy;
   final int finishedWorkouts;
@@ -38,10 +44,53 @@ class PlansScreen extends StatefulWidget {
 
 class _PlansScreenState extends State<PlansScreen> {
   String _equipment = '';
+  bool _suggestionHidden = false;
+
+  Object _inputs(PlansScreen screen) => (
+    screen.preferredEquipment,
+    Object.hashAll(
+      screen.plans.map(
+        (plan) => (
+          plan.id,
+          plan.title,
+          plan.equipmentTag,
+          plan.planNote,
+          plan.effortPreference,
+        ),
+      ),
+    ),
+    Object.hashAll(
+      screen.entries.map(
+        (entry) => (
+          entry.id,
+          entry.workoutId,
+          entry.sessionKey,
+          entry.exerciseLabel,
+          entry.reps,
+          entry.loggedAt,
+          entry.sessionFinished,
+        ),
+      ),
+    ),
+  );
+
+  @override
+  void didUpdateWidget(covariant PlansScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_inputs(oldWidget) != _inputs(widget)) _suggestionHidden = false;
+  }
 
   @override
   Widget build(BuildContext context) {
     final ready = widget.loaded && !widget.busy && widget.error == null;
+    final match = ready && widget.settingsReady
+        ? matchGear(
+            plans: widget.plans,
+            entries: widget.entries,
+            equipment: widget.preferredEquipment,
+          )
+        : null;
+    final suggestion = match?.suggestion;
     final visible = widget.plans.where(
       (plan) => _equipment.isEmpty || plan.equipmentTag == _equipment,
     );
@@ -103,6 +152,54 @@ class _PlansScreenState extends State<PlansScreen> {
         ],
         if (widget.message != null)
           Semantics(liveRegion: true, child: Text(widget.message!)),
+        if (match?.message != null)
+          Semantics(liveRegion: true, child: Text(match!.message!)),
+        if (suggestion != null && !_suggestionHidden)
+          Card(
+            key: const ValueKey('gear-match'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Suggested plan',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    suggestion.plan.title,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    widget.preferredEquipment == 'No preference'
+                        ? 'Equipment match: skipped (no preference)'
+                        : 'Equipment match: +${suggestion.equipmentPoints}',
+                  ),
+                  Text(
+                    match!.lastWorkoutId == null
+                        ? 'Recent workout: skipped (no finished history)'
+                        : 'Different from your last finished workout: +${suggestion.recentPoints}',
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      FilledButton(
+                        onPressed: () => widget.onOpenPlan(suggestion.plan),
+                        child: const Text('View plan'),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _suggestionHidden = true),
+                        child: const Text('Not now'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (ready && widget.plans.isEmpty)
           const Text('No plans yet. Add a plan to get started.'),
         if (ready && widget.plans.isNotEmpty && visible.isEmpty) ...[

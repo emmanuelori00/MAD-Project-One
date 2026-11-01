@@ -36,6 +36,20 @@ Future<void> fill(WidgetTester tester, String label, String value) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> checkFinishedCount(WidgetTester tester, int count) async {
+  final total = find.text('Finished workouts: $count');
+  await tester.scrollUntilVisible(
+    total,
+    -150,
+    scrollable: find.descendant(
+      of: find.byType(PlansScreen),
+      matching: find.byType(Scrollable),
+    ),
+  );
+  await tester.pumpAndSettle();
+  expect(total, findsOneWidget);
+}
+
 WorkoutPlan plan(String title, {String equipment = 'No equipment'}) =>
     WorkoutPlan(
       title: title,
@@ -174,7 +188,7 @@ void main() {
       await tapText(tester, 'Finish workout');
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.text('Finished workouts: 1'), findsOneWidget);
+      await checkFinishedCount(tester, 1);
       await tapText(tester, 'History');
       expect(find.text('My workout'), findsOneWidget);
       expect(find.text('Rows · 8 reps'), findsNWidgets(2));
@@ -195,7 +209,7 @@ void main() {
         expect(logs.entries, hasLength(remaining));
       }
       await tapText(tester, 'Plans');
-      expect(find.text('Finished workouts: 0'), findsOneWidget);
+      await checkFinishedCount(tester, 0);
       expect(tester.takeException(), isNull);
     },
   );
@@ -301,7 +315,13 @@ void main() {
     await tapText(tester, 'Dumbbells');
     expect(find.text('No plans match this equipment.'), findsOneWidget);
     await tapText(tester, 'Clear filter');
-    expect(find.text('Bodyweight'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(PlanCard),
+        matching: find.text('Bodyweight'),
+      ),
+      findsOneWidget,
+    );
   });
 
   testWidgets(

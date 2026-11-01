@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:movement_quest/app.dart';
 import 'package:movement_quest/data/app_settings.dart';
 import 'package:movement_quest/data/movement_quest_database.dart';
+import 'package:movement_quest/widgets/plan_card.dart';
 import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -98,7 +99,13 @@ void main() {
       });
       await tester.pumpWidget(app());
       await settleDatabase(tester);
-      expect(find.text('Persistent plan'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(PlanCard),
+          matching: find.text('Persistent plan'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Finished workouts: 1'), findsOneWidget);
       await tapText(tester, 'History');
       expect(find.text('Rows · 9 reps'), findsOneWidget);
